@@ -156,7 +156,7 @@
             S: { name: { en: "The SPECIALIST (High S)", pt: "O ESPECIALISTA (Alto S)" }, 
                 description: { 
                     en: "Calm, patient, and highly **reliable**. You excel at providing consistent support, maintaining stability, and ensuring tasks are completed accurately within a team setting. Your core needs are **genuine appreciation, security, and harmony**. You are the bedrock of the team, valuing loyalty and steady progress. You may resist sudden, high-pressure changes and struggle to assert yourself or initiate conflict, preferring to yield for the sake of peace.",
-                    pt: "Calmo, paciente e altamente **confiável**. Você é excelente em fornecer suporte consistente, manter a estabilidade e garantir que as tarefas sejam concluídas com precisão em um ambiente de equipe. Suas necessidades centrais são **apreciação genuína, segurança e harmonia**. Você é a base da equipe, valorizando a lealdade e o progresso constante. Você pode resistir a mudanças repentinas e de alta pressão e ter dificuldade em se afirmar ou iniciar conflitos, preferindo ceder em prol da paz."
+                    pt: "Calmo, paciente e altamente **confiável**. Você é excelente em fornecer suporte consistente, manter a estabilidade e garantir que as tarefas sejam concluídas com precisão em um ambiente de equipe. Suas necessidades centrais são **apreciação genuína, segurança e harmonia**. Você é a base da equipe, valorizando a lealdade e o progresso constante. Você pode resistir a mudanças repentinas e de alta pressão e ter dificuldade em se afirmar ou iniciar conflitos, preferrindo ceder em prol da paz."
                 },
                 style: discDescriptions.S.style
             },
@@ -189,7 +189,7 @@
             DC: { name: { en: "The INVESTIGATOR (D Primary, C Secondary)", pt: "O INVESTIGADOR (D Primário, C Secundário)" },
                 description: { 
                     en: "A **demanding, results-oriented perfectionist**. You require both control over the outcome and quality in the process. You approach problems logically, aggressively seeking errors and inefficiencies, and you hold yourself and others to extremely high standards. You are decisive but only after carefully weighing the facts, and you communicate with great clarity, preferring a business-like approach over personal warmth.",
-                    pt: "Um **perfeccionista exigente e orientado a resultados**. Você requer tanto controle sobre o resultado quanto qualidade no processo. Você aborda problemas logicamente, buscando agressivamente erros e ineficiências, e mantém a si mesmo e aos outros em padrões extremamente elevados. Você é decisivo, mas somente após ponderar cuidadosamente os fatos, e se comunica com grande clareza, preferindo uma abordagem profissional à cordialidade pessoal."
+                    pt: "Um **perfeccionista exigente e orientado a resultados**. Você requer tanto controle sobre o resultado quanto qualidade no processo. Você aborda problemas logicamente, buscando agressivamente erros e ineficiências, e mantém a si mesmo e aos outros em padrões extremamente elevados. Você é decisivo, mas somente após ponderar cuidadosamente os fatos, e se comunica com grande clareza, preferring uma abordagem profissional à cordialidade pessoal."
                 },
                 style: discDescriptions.D.style
             },
@@ -297,6 +297,9 @@
 
             // Initialize static text
             updateStaticText(); 
+            
+            // Shuffle questions array
+            questions.sort(() => Math.random() - 0.5);
             
             // Render initial question or set up environment
             if (currentQuestionIndex < questions.length) {
@@ -447,15 +450,15 @@
 
                 // Score Card HTML
                 scoreCardsHTML += `
-                    <div class="p-6 rounded-xl border-2 ${desc.style} shadow-lg transition duration-300 ${isPrimary ? 'scale-[1.02] ring-4 ring-offset-2 ring-indigo-500' : ''}">
+                    <div class="p-3 rounded-xl border-2 ${desc.style} shadow-lg transition duration-300 ${isPrimary ? 'scale-[1.02] ring-4 ring-offset-2 ring-indigo-500' : ''}" style="width: 100%;">
                         <div class="flex items-center mb-4">
                             <span class="text-3xl mr-3">${desc.icon}</span>
-                            <h3 class="text-xl font-bold">${desc.title[currentLang]}</h3>
+                            <h3 class="text-xl font-bold break-words">${desc.title[currentLang]}</h3>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
                             <div class="h-2.5 rounded-full ${isPrimary ? 'bg-indigo-600' : 'bg-gray-500'}" style="width: ${percentage}%"></div>
                         </div>
-                        <p class="text-sm font-semibold mt-2">${item.score} / ${maxScore} ${t('points')} (${percentage}%)</p>
+                        <p class="text-sm font-semibold mt-2 break-words">${item.score} / ${maxScore} ${t('points')} (${percentage}%)</p>
                     </div>
                 `;
             });
@@ -486,8 +489,8 @@
                 margin: 10,
                 filename: t('filename') + '.pdf', // Dynamic filename based on language
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 3, logging: false, useCORS: true }, 
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                html2canvas: { scale: 2, logging: false, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } // Set orientation to landscape
             };
 
             html2pdf().set(options).from(element).save();
@@ -521,7 +524,7 @@
 <body class="min-h-screen flex items-center justify-center p-4">
 
     <!-- Main Container -->
-    <div class="max-w-4xl w-full bg-white p-8 md:p-12 rounded-2xl shadow-2xl transition duration-500">
+    <div class="max-w-[80vw] w-full bg-white p-8 md:p-12 rounded-2xl shadow-2xl transition duration-500">
         
         <!-- Language Selector -->
         <div class="flex justify-end space-x-2 mb-4">
@@ -588,7 +591,7 @@
             </div>
 
             <!-- Score Cards -->
-            <div id="result-scores" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div id="result-scores" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 justify-center">
                 <!-- Score cards will be injected here -->
             </div>
 
