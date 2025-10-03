@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DISC Personality Assessment</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load html2pdf.js library for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* Custom styles for the rating buttons and overall feel */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e3ef 100%);
+        }
+        .rating-button {
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        .rating-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        }
+        .selected {
+            @apply ring-4 ring-offset-2 ring-indigo-500 scale-105;
+        }
+        .progress-bar-inner {
+            transition: width 0.3s ease-in-out;
+        }
+        /* Custom scrollbar for result interpretation */
+        .scroll-container {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .lang-button {
+            transition: transform 0.1s;
+        }
+        .lang-button:hover {
+            transform: scale(1.1);
+        }
+    </style>
+    <script>
+        // --- Language State and Translations ---
+        let currentLang = 'en'; // Default language
+
+        const translations = {
+            'en': {
+                title: "DISC Personality Test",
+                subtitle: "Rate how much each statement describes you (1 = Least, 4 = Most)",
+                progress_q_of_total: "Question {q} of {total}",
+                rating_1: "1 - Least Like Me",
+                rating_2: "2 - Less Like Me",
+                rating_3: "3 - More Like Me",
+                rating_4: "4 - Most Like Me",
+                rating_guide: "Tap or click a number to rate the statement (1=Least, 4=Most)",
+                main_result_title: "Your Personality Profile:",
+                result_subtitle: "Below are your scores for the four DISC factors, followed by a detailed interpretation of your combined style.",
+                interpretation_title: "Detailed Profile Interpretation",
+                points: "Points",
+                restart: "Restart Test",
+                export_pdf: "Export to PDF 📄",
+                filename: "DISC_Personality_Results_EN"
+            },
+            'pt': {
+                title: "Teste de Personalidade DISC",
+                subtitle: "Avalie o quanto cada afirmação o descreve (1 = Mínimo, 4 = Máximo)",
+                progress_q_of_total: "Pergunta {q} de {total}",
+                rating_1: "1 - Não sou assim",
+                rating_2: "2 - Quase não sou assim",
+                rating_3: "3 - Sou um pouco assim",
+                rating_4: "4 - Sou assim",
+                rating_guide: "Toque ou clique em um número para avaliar a afirmação (1=Mínimo, 4=Máximo)",
+                main_result_title: "Seu Perfil de Personalidade:",
+                result_subtitle: "Abaixo estão suas pontuações para os quatro fatores DISC, seguidas de uma interpretação detalhada do seu estilo combinado.",
+                interpretation_title: "Interpretação Detalhada do Perfil",
+                points: "Pontos",
+                restart: "Reiniciar Teste",
+                export_pdf: "Exportar para PDF 📄",
+                filename: "DISC_Personality_Results_PT"
+            }
+        };
+
+        // Utility function for translation
+        function t(key, replacements = {}) {
+            let text = translations[currentLang][key] || translations['en'][key];
+            for (const [k, v] of Object.entries(replacements)) {
+                text = text.replace(`{${k}}`, v);
+            }
+            return text;
+        };
+
+        // --- DISC Test Data (30 Questions) ---
+        const questions = [
+            // D - Dominance (8 Questions total)
+            { text: { en: "I prioritize getting measurable results quickly.", pt: "Eu priorizo a obtenção de resultados mensuráveis rapidamente." }, factor: "D" },
+            { text: { en: "I am direct and assertive in my communication style.", pt: "Eu sou direto e assertivo no meu estilo de comunicação." }, factor: "D" },
+            { text: { en: "I enjoy taking charge and leading group activities.", pt: "Eu gosto de assumir o comando e liderar atividades em grupo." }, factor: "D" },
+            { text: { en: "I thrive on challenge and competitive environments.", pt: "Eu prospero em ambientes desafiadores e competitivos." }, factor: "D" },
+            { text: { en: "I feel comfortable making decisions without extensive consultation.", pt: "Sinto-me à vontade para tomar decisões sem consulta extensa." }, factor: "D" },
+            { text: { en: "I am focused on overcoming obstacles and achieving immediate goals.", pt: "Estou focado em superar obstáculos e alcançar objetivos imediatos." }, factor: "D" },
+            { text: { en: "I appreciate an environment where speed is valued over thoroughness.", pt: "Eu aprecio um ambiente onde a velocidade é mais valorizada do que a exaustividade." }, factor: "D" },
+            { text: { en: "I confront issues and people directly when conflict arises.", pt: "Eu confronto problemas e pessoas diretamente quando surge um conflito." }, factor: "D" },
+
+            // I - Influence (7 Questions total)
+            { text: { en: "I am outgoing and enjoy meeting new people frequently.", pt: "Eu sou extrovertido e gosto de conhecer novas pessoas frequentemente." }, factor: "I" },
+            { text: { en: "I use enthusiasm and positive language to motivate others.", pt: "Eu uso entusiasmo e linguagem positiva para motivar os outros." }, factor: "I" },
+            { text: { en: "I am naturally optimistic and look for the best in situations.", pt: "Eu sou naturalmente otimista e procuro o melhor nas situações." }, factor: "I" },
+            { text: { en: "I like to talk and express my ideas freely and openly.", pt: "Eu gosto de conversar e expressar minhas ideias livre e abertamente." }, factor: "I" },
+            { text: { en: "I enjoy being the center of attention in a social setting.", pt: "Eu gosto de ser o centro das atenções em um ambiente social." }, factor: "I" },
+            { text: { en: "I am skilled at persuading others to adopt my ideas.", pt: "Sou hábil em persuadir os outros a adotarem minhas ideias." }, factor: "I" },
+            { text: { en: "I often rely on intuition and feelings rather than facts.", pt: "Muitas vezes, confio na intuição e nos sentimentos em vez de em fatos." }, factor: "I" },
+
+            // S - Steadiness (8 Questions total)
+            { text: { en: "I am patient and prefer a predictable, stable work environment.", pt: "Eu sou paciente e prefiro um ambiente de trabalho previsível e estável." }, factor: "S" },
+            { text: { en: "I am supportive and value harmony in my team and relationships.", pt: "Eu sou prestativo e valorizo a harmonia na minha equipe e relacionamentos." }, factor: "S" },
+            { text: { en: "I am a reliable team player who follows through on commitments.", pt: "Eu sou um membro de equipe confiável que cumpre os compromissos." }, factor: "S" },
+            { text: { en: "I prefer to work at a steady, deliberate, and consistent pace.", pt: "Eu prefiro trabalhar em um ritmo constante, deliberado e consistente." }, factor: "S" },
+            { text: { en: "I value maintaining a secure and familiar routine.", pt: "Eu valorizo a manutenção de uma rotina segura e familiar." }, factor: "S" },
+            { text: { en: "I am empathetic and a good listener for others' concerns.", pt: "Eu sou empático e um bom ouvinte para as preocupações dos outros." }, factor: "S" },
+            { text: { en: "I dislike sudden, unexpected changes to plans or schedules.", pt: "Eu não gosto de mudanças repentinas e inesperadas nos planos ou horários." }, factor: "S" },
+            { text: { en: "I tend to be quite cautious when approaching new tasks or risks.", pt: "Eu tendo a ser bastante cauteloso ao abordar novas tarefas ou riscos." }, factor: "S" },
+
+            // C - Conscientiousness (7 Questions total)
+            { text: { en: "I am highly analytical and focused on details and accuracy.", pt: "Eu sou altamente analítico e focado em detalhes e precisão." }, factor: "C" },
+            { text: { en: "I enjoy following established rules, procedures, and high standards.", pt: "Eu gosto de seguir regras estabelecidas, procedimentos e altos padrões." }, factor: "C" },
+            { text: { en: "I approach problems logically, systematically, and critically.", pt: "Eu abordo problemas de forma lógica, sistemática e crítica." }, factor: "C" },
+            { text: { en: "I take time to carefully review and critique all my work.", pt: "Eu dedico tempo para revisar e criticar cuidadosamente todo o meu trabalho." }, factor: "C" },
+            { text: { en: "I am highly organized and meticulous about my workspace.", pt: "Eu sou altamente organizado e meticuloso com meu espaço de trabalho." }, factor: "C" },
+            { text: { en: "I strive for perfection in everything I do, even minor tasks.", pt: "Eu me esforço para a perfeição em tudo o que faço, mesmo em tarefas menores." }, factor: "C" },
+            { text: { en: "I base my decisions primarily on verifiable facts and data.", pt: "Eu baseio minhas decisões principalmente em fatos e dados verificáveis." }, factor: "C" },
+        ];
+        
+        // Base descriptions for the four factors (used in score cards)
+        const discDescriptions = {
+            D: { title: { en: "Dominance (D)", pt: "Dominância (D)" }, style: "bg-red-100 border-red-500 text-red-700", icon: "⚡" },
+            I: { title: { en: "Influence (I)", pt: "Influência (I)" }, style: "bg-yellow-100 border-yellow-500 text-yellow-700", icon: "✨" },
+            S: { title: { en: "Steadiness (S)", pt: "Estabilidade (S)" }, style: "bg-green-100 border-green-500 text-green-700", icon: "🌿" },
+            C: { title: { en: "Conscientiousness (C)", pt: "Conscienciosidade (C)" }, style: "bg-blue-100 border-blue-500 text-blue-700", icon: "🔬" }
+        };
+
+        // Detailed Blended Profile Descriptions (12 common shades)
+        const blendedDescriptions = {
+            // --- Pure Styles (Single High Factor) ---
+            D: { name: { en: "The DIRECTOR (High D)", pt: "O DIRETOR (Alto D)" }, 
+                description: { 
+                    en: "Strong, decisive, and focused entirely on **results**. You are a natural leader who confronts challenges head-on and quickly drives tasks to completion. Your core needs are **control, competence, and action**. You thrive on competition and direct confrontation, but you risk being perceived as impatient, demanding, or overly abrupt, especially when dealing with slower paces or perceived incompetence.",
+                    pt: "Forte, decisivo e totalmente focado em **resultados**. Você é um líder nato que confronta desafios de frente e rapidamente leva as tarefas à conclusão. Suas necessidades centrais são **controle, competência e ação**. Você prospera na competição e no confronto direto, mas corre o risco de ser percebido como impaciente, exigente ou excessivamente abrupto, especialmente ao lidar com ritmos mais lentos ou incompetência percebida."
+                },
+                style: discDescriptions.D.style
+            },
+            I: { name: { en: "The INFLUENCER (High I)", pt: "O INFLUENCIADOR (Alto I)" }, 
+                description: { 
+                    en: "Extremely **people-oriented**, expressive, and optimistic. You seek opportunities to socialize, inspire others, and maintain a positive environment. Your core needs are **social recognition, enthusiasm, and friendly relationships**. You excel at persuasion and building broad networks. Your primary weakness is a tendency towards impulsiveness, disorganized follow-through, and focusing more on popularity than necessary facts or careful planning.",
+                    pt: "Extremamente **orientado para pessoas**, expressivo e otimista. Você busca oportunidades para socializar, inspirar os outros e manter um ambiente positivo. Suas necessidades centrais são **reconhecimento social, entusiasmo e relacionamentos amigáveis**. Você se destaca na persuasão e na construção de amplas redes. Sua principal fraqueza é uma tendência à impulsividade, acompanhamento desorganizado e foco mais na popularidade do que em fatos necessários ou planejamento cuidadoso."
+                },
+                style: discDescriptions.I.style
+            },
+            S: { name: { en: "The SPECIALIST (High S)", pt: "O ESPECIALISTA (Alto S)" }, 
+                description: { 
+                    en: "Calm, patient, and highly **reliable**. You excel at providing consistent support, maintaining stability, and ensuring tasks are completed accurately within a team setting. Your core needs are **genuine appreciation, security, and harmony**. You are the bedrock of the team, valuing loyalty and steady progress. You may resist sudden, high-pressure changes and struggle to assert yourself or initiate conflict, preferring to yield for the sake of peace.",
+                    pt: "Calmo, paciente e altamente **confiável**. Você é excelente em fornecer suporte consistente, manter a estabilidade e garantir que as tarefas sejam concluídas com precisão em um ambiente de equipe. Suas necessidades centrais são **apreciação genuína, segurança e harmonia**. Você é a base da equipe, valorizando a lealdade e o progresso constante. Você pode resistir a mudanças repentinas e de alta pressão e ter dificuldade em se afirmar ou iniciar conflitos, preferindo ceder em prol da paz."
+                },
+                style: discDescriptions.S.style
+            },
+            C: { name: { en: "The ANALYZER (High C)", pt: "O ANALISTA (Alto C)" }, 
+                description: { 
+                    en: "Highly **analytical**, precise, and systematic. You are motivated by **quality, expertise, and a logical approach** to problem-solving. You focus intensely on rules, procedures, and high standards, using data as your primary driver for decisions. Your strength is delivering flawless results, but your blind spot is the potential for **'analysis paralysis'**, delaying action while seeking excessive information or critiquing others' lack of structure.",
+                    pt: "Altamente **analítico**, preciso e sistemático. Você é motivado por **qualidade, experiência e uma abordagem lógica** para a resolução de problemas. Você se concentra intensamente em regras, procedimentos e altos padrões, usando dados como seu principal motor para decisões. Sua força é entregar resultados impecáveis, mas seu ponto cego é o potencial de **'paralisia por análise'**, atrasando a ação enquanto busca informações excessivas ou critica a falta de estrutura dos outros."
+                },
+                style: discDescriptions.C.style
+            },
+
+            // --- Blended Styles (Two High Factors) ---
+            // D/I Blends (Active)
+            DI: { name: { en: "The ACHIEVER (D Primary, I Secondary)", pt: "O REALIZADOR (D Primário, I Secundário)" },
+                description: { 
+                    en: "Combines the drive for results with an outgoing, persuasive manner. You are the **energetic, goal-focused leader** who uses charm and enthusiasm to motivate others toward ambitious targets. You are charismatic and entrepreneurial, but you can become highly impatient with those who fail to keep up or who prioritize systems over speed. You value immediate action and social influence.",
+                    pt: "Combina o impulso por resultados com um jeito extrovertido e persuasivo. Você é o **líder energético e focado em objetivos** que usa charme e entusiasmo para motivar os outros em direção a metas ambiciosas. Você é carismático e empreendedor, mas pode se tornar altamente impaciente com aqueles que não conseguem acompanhar ou que priorizam sistemas em detrimento da velocidade. Você valoriza a ação imediata e a influência social."
+                },
+                style: discDescriptions.D.style // Use the primary style color
+            },
+            ID: { name: { en: "The PROMOTER (I Primary, D Secondary)", pt: "O PROMOTOR (I Primário, D Secundário)" },
+                description: { 
+                    en: "A social and persuasive force who excels at influencing decisions and leading groups through enthusiasm. You are primarily focused on **relationships and excitement**, but have a strong underlying drive to win and be recognized for your achievements. You seek acceptance and have a quick pace, sometimes making quick decisions based on gut feeling rather than detailed analysis.",
+                    pt: "Uma força social e persuasiva que se destaca em influenciar decisões e liderar grupos através do entusiasmo. Você está focado principalmente em **relacionamentos e entusiasmo**, mas tem um forte impulso subjacente para vencer e ser reconhecido por suas conquistas. Você busca aceitação e tem um ritmo rápido, às vezes tomando decisões rápidas baseadas no instinto em vez de análise detalhada."
+                },
+                style: discDescriptions.I.style
+            },
+            
+            // D/C Blends (Task-Oriented)
+            DC: { name: { en: "The INVESTIGATOR (D Primary, C Secondary)", pt: "O INVESTIGADOR (D Primário, C Secundário)" },
+                description: { 
+                    en: "A **demanding, results-oriented perfectionist**. You require both control over the outcome and quality in the process. You approach problems logically, aggressively seeking errors and inefficiencies, and you hold yourself and others to extremely high standards. You are decisive but only after carefully weighing the facts, and you communicate with great clarity, preferring a business-like approach over personal warmth.",
+                    pt: "Um **perfeccionista exigente e orientado a resultados**. Você requer tanto controle sobre o resultado quanto qualidade no processo. Você aborda problemas logicamente, buscando agressivamente erros e ineficiências, e mantém a si mesmo e aos outros em padrões extremamente elevados. Você é decisivo, mas somente após ponderar cuidadosamente os fatos, e se comunica com grande clareza, preferindo uma abordagem profissional à cordialidade pessoal."
+                },
+                style: discDescriptions.D.style
+            },
+            CD: { name: { en: "The PRODUCER (C Primary, D Secondary)", pt: "O PRODUTOR (C Primário, D Secundário)" },
+                description: { 
+                    en: "Driven by high standards and the determination to execute them perfectly. You combine a deep need for **accuracy and structure** with a forceful, determined drive to complete complex projects on your own terms. You are structured and skeptical, only trusting documented evidence. This makes you excellent at high-stakes technical work, but you can be slow to trust or delegate due to fear of errors.",
+                    pt: "Impulsionado por altos padrões e a determinação de executá-los perfeitamente. Você combina uma profunda necessidade de **precisão e estrutura** com um impulso enérgico e determinado para concluir projetos complexos nos seus próprios termos. Você é estruturado e cético, confiando apenas em evidências documentadas. Isso o torna excelente em trabalhos técnicos de alto risco, mas você pode ser lento para confiar ou delegar devido ao medo de erros."
+                },
+                style: discDescriptions.C.style
+            },
+            
+            // I/S Blends (People-Oriented)
+            IS: { name: { en: "The COUNSELOR (I Primary, S Secondary)", pt: "O CONSELHEIRO (I Primário, S Secundário)" },
+                description: { 
+                    en: "The ultimate **supportive and optimistic team player**. You create a harmonious, friendly, and encouraging environment. You are genuinely concerned with the feelings of others and use gentle persuasion to motivate people and maintain group harmony. Your focus is firmly on relationships and collaborative effort, sometimes to the detriment of clear, goal-driven actions or confronting necessary conflicts.",
+                    pt: "O jogador de equipe **definitivamente solidário e otimista**. Você cria um ambiente harmonioso, amigável e encorajador. Você está genuinamente preocupado com os sentimentos dos outros e usa persuasão suave para motivar as pessoas e manter a harmonia do grupo. Seu foco está firmemente em relacionamentos e esforço colaborativo, às vezes em detrimento de ações claras e orientadas a objetivos ou do confronto de conflitos necessários."
+                },
+                style: discDescriptions.I.style
+            },
+            SI: { name: { en: "The IMPLEMENTER (S Primary, I Secondary)", pt: "O IMPLEMENTADOR (S Primário, I Secundário)" },
+                description: { 
+                    en: "Combines **patience and reliability** with a desire for social interaction. You are the stable, dependable, and friendly member of the team who enjoys supporting others and building strong personal connections within a familiar structure. You focus on the 'how' in a collaborative and approachable manner, making sure everyone feels heard, though you may lack the initiating force to challenge the status quo.",
+                    pt: "Combina **paciência e confiabilidade** com um desejo de interação social. Você é o membro estável, confiável e amigável da equipe que gosta de apoiar os outros e construir fortes conexões pessoais dentro de uma estrutura familiar. Você se concentra no 'como' de maneira colaborativa e acessível, garantindo que todos se sintam ouvidos, embora possa faltar a força inicial para desafiar o status quo."
+                },
+                style: discDescriptions.S.style
+            },
+            
+            // S/C Blends (Reserved)
+            SC: { name: { en: "The TECHNICIAN (S Primary, C Secondary)", pt: "O TÉCNICO (S Primário, C Secundário)" },
+                description: { 
+                    en: "A methodical, **reserved, and highly detailed worker**. You require a predictable, calm environment to produce work of the highest quality and accuracy. You are patient with processes but meticulous in finding errors and ensuring completeness. You value logic, efficiency, and stability over speed or social recognition. Your calm demeanor hides an intense focus on precision and low tolerance for carelessness.",
+                    pt: "Um trabalhador metódico, **reservado e altamente detalhista**. Você exige um ambiente previsível e calmo para produzir trabalhos da mais alta qualidade e precisão. Você é paciente com os processos, mas meticuloso em encontrar erros e garantir a completude. Você valoriza a lógica, a eficiência e a estabilidade em detrimento da velocidade ou do reconhecimento social. Seu comportamento calmo esconde um foco intenso na precisão e baixa tolerância à negligência."
+                },
+                style: discDescriptions.S.style
+            },
+            CS: { name: { en: "The GUARDIAN (C Primary, S Secondary)", pt: "O GUARDIÃO (C Primário, S Secundário)" },
+                description: { 
+                    en: "Prioritizes **accuracy and stability**. You are the defender of rules and procedures, ensuring that the team adheres to quality and consistency standards. You are systematic, cautious, and highly reliable once a proven system is established. Your pace is slower because thoroughness is paramount, and you prefer to manage risks by sticking strictly to established methodologies and detailed plans.",
+                    pt: "Prioriza **precisão e estabilidade**. Você é o defensor de regras e procedimentos, garantindo que a equipe adira aos padrões de qualidade e consistência. Você é sistemático, cauteloso e altamente confiável assim que um sistema comprovado é estabelecido. Seu ritmo é mais lento porque a exaustividade é primordial, e você prefere gerenciar riscos aderindo estritamente a metodologias estabelecidas e planos detalhados."
+                },
+                style: discDescriptions.C.style
+            }
+        };
+
+        // --- Global State ---
+        let currentQuestionIndex = 0;
+        let scores = { D: 0, I: 0, S: 0, C: 0 };
+        let userRatings = [];
+
+        // --- DOM Elements ---
+        let testContainer;
+        let resultsContainer;
+        let questionTextElement;
+        let progressTextElement;
+        let ratingButtonsContainer;
+
+        /**
+         * Sets the application language and updates the UI text.
+         * @param {string} lang 'en' or 'pt'
+         */
+        function setLanguage(lang) {
+            if (lang === currentLang) return;
+            currentLang = lang;
+            updateStaticText();
+            
+            // Re-render the current view
+            if (resultsContainer.classList.contains('hidden')) {
+                renderQuestion();
+            } else {
+                showResults(true); // Re-render results immediately
+            }
+        }
+
+        /**
+         * Updates all non-dynamic text in the UI based on currentLang.
+         */
+        function updateStaticText() {
+            document.getElementById('header-title').textContent = t('title');
+            document.getElementById('header-subtitle').textContent = t('subtitle');
+            document.getElementById('rating-1').textContent = t('rating_1');
+            document.getElementById('rating-2').textContent = t('rating_2');
+            document.getElementById('rating-3').textContent = t('rating_3');
+            document.getElementById('rating-4').textContent = t('rating_4');
+            document.getElementById('rating-guide').textContent = t('rating_guide');
+            
+            const restartBtn = document.getElementById('restart-btn');
+            const exportBtn = document.getElementById('export-btn');
+
+            if (restartBtn) restartBtn.textContent = t('restart');
+            if (exportBtn) exportBtn.textContent = t('export_pdf');
+        }
+
+        // --- Logic Functions ---
+
+        /**
+         * Initializes the application and renders the first question.
+         */
+        function init() {
+            testContainer = document.getElementById('test-container');
+            resultsContainer = document.getElementById('results-container');
+            questionTextElement = document.getElementById('question-text');
+            progressTextElement = document.getElementById('progress-text');
+            progressBarElement = document.getElementById('progress-bar-inner');
+            ratingButtonsContainer = document.getElementById('rating-buttons');
+
+            // Initialize static text
+            updateStaticText(); 
+            
+            // Render initial question or set up environment
+            if (currentQuestionIndex < questions.length) {
+                renderQuestion();
+            } else {
+                // Should only happen on restart, but good for robustness
+                showResults();
+            }
+        }
+
+        /**
+         * Renders the current question text and updates the progress bar.
+         */
+        function renderQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+                return;
+            }
+
+            const currentQ = questions[currentQuestionIndex];
+            const totalQuestions = questions.length;
+
+            // Update question text using the selected language
+            questionTextElement.textContent = currentQ.text[currentLang];
+            
+            // Update progress
+            const progress = (currentQuestionIndex / totalQuestions) * 100;
+            progressTextElement.textContent = t('progress_q_of_total', { q: currentQuestionIndex + 1, total: totalQuestions });
+            progressBarElement.style.width = `${progress}%`;
+
+            // Reset button styles
+            Array.from(ratingButtonsContainer.children).forEach(btn => btn.classList.remove('selected'));
+        }
+
+        /**
+         * Handles the user rating, updates scores, and advances to the next question.
+         * @param {number} rating The score (1-4) selected by the user.
+         * @param {HTMLElement} buttonElement The button element that was clicked.
+         */
+        function handleRating(rating, buttonElement) {
+            // Check if the test is already finished (shouldn't happen, but safe check)
+            if (currentQuestionIndex >= questions.length) return; 
+
+            const currentQ = questions[currentQuestionIndex];
+
+            // 1. Visually select the button
+            Array.from(ratingButtonsContainer.children).forEach(btn => btn.classList.remove('selected'));
+            buttonElement.classList.add('selected');
+
+            // 2. Update the score and history (rating = score)
+            scores[currentQ.factor] += rating;
+            userRatings.push({ factor: currentQ.factor, rating: rating });
+            
+            // 3. Delay slightly before advancing for visual feedback
+            setTimeout(() => {
+                currentQuestionIndex++;
+                renderQuestion();
+            }, 300);
+        }
+        
+        /**
+         * Determines the final DISC profile key (D, I, S, C, DI, ID, SC, etc.)
+         * based on the two highest scores.
+         * @param {Array<Object>} factorScores Sorted array of scores [{factor: 'D', score: 25}, ...]
+         * @returns {string} The profile key (e.g., 'DI', 'C')
+         */
+        function getProfileKey(factorScores) {
+            const primary = factorScores[0];
+            const secondary = factorScores[1];
+            
+            // Threshold for considering a score 'Pure' vs 'Blended'
+            // If the difference between the highest and second highest score is > 4 points,
+            // we consider the profile 'Pure' (only the highest factor matters).
+            const PURE_THRESHOLD = 4;
+
+            if (primary.score - secondary.score > PURE_THRESHOLD) {
+                return primary.factor; // Pure Style (e.g., 'D', 'I', 'S', 'C')
+            } else {
+                return primary.factor + secondary.factor; // Blended Style (e.g., 'DI', 'IS', 'SC')
+            }
+        }
+
+
+        /**
+         * Calculates final results, determines the primary style, and renders the results UI.
+         * @param {boolean} forceRerender If true, just re-render results without hiding/showing containers.
+         */
+        function showResults(forceRerender = false) {
+            if (!forceRerender) {
+                testContainer.classList.add('hidden');
+                resultsContainer.classList.remove('hidden');
+            }
+
+            const resultScores = document.getElementById('result-scores');
+            const resultInterpretation = document.getElementById('result-interpretation');
+
+            // --- Dynamic Scoring Setup ---
+            const factorCounts = questions.reduce((acc, q) => {
+                acc[q.factor] = (acc[q.factor] || 0) + 1;
+                return acc;
+            }, {});
+
+            let factorScores = [
+                { factor: 'D', score: scores.D },
+                { factor: 'I', score: scores.I },
+                { factor: 'S', score: scores.S },
+                { factor: 'C', score: scores.C },
+            ];
+            
+            // 1. Sort scores to find Primary and Secondary
+            factorScores.sort((a, b) => b.score - a.score);
+            
+            // 2. Determine the Profile Key (e.g., 'DI', 'C')
+            const profileKey = getProfileKey(factorScores);
+            const profileData = blendedDescriptions[profileKey];
+            
+            // Set the main result header using the blended profile name
+            const mainResultTitle = document.getElementById('main-result-title');
+            mainResultTitle.innerHTML = `${t('main_result_title')} <span class="text-indigo-600 font-extrabold">${profileData.name[currentLang]}</span>`;
+
+            document.getElementById('result-subtitle').textContent = t('result_subtitle');
+            document.getElementById('interpretation-title').textContent = t('interpretation_title');
+
+            // --- Render Score Cards (Always show all 4 base factors) ---
+            let scoreCardsHTML = '';
+            
+            // Find the two highest score factors for visual emphasis (regardless of the pure/blended split)
+            const primaryStyles = [factorScores[0].factor, factorScores[1].factor]; 
+
+            // Sort by factor letter (D, I, S, C) for consistent display in the score cards
+            const factorOrder = ['D', 'I', 'S', 'C'];
+            const sortedForDisplay = factorOrder.map(f => factorScores.find(s => s.factor === f));
+            
+            sortedForDisplay.forEach(item => {
+                const desc = discDescriptions[item.factor];
+                
+                const factorCount = factorCounts[item.factor]; 
+                const maxScore = factorCount * 4;             
+                const minScore = factorCount * 1;             
+                const range = maxScore - minScore;            
+
+                const percentage = range > 0 
+                    ? Math.round(((item.score - minScore) / range) * 100)
+                    : 0;
+
+                // Highlight the top two factors
+                const isPrimary = primaryStyles.includes(item.factor);
+
+                // Score Card HTML
+                scoreCardsHTML += `
+                    <div class="p-6 rounded-xl border-2 ${desc.style} shadow-lg transition duration-300 ${isPrimary ? 'scale-[1.02] ring-4 ring-offset-2 ring-indigo-500' : ''}">
+                        <div class="flex items-center mb-4">
+                            <span class="text-3xl mr-3">${desc.icon}</span>
+                            <h3 class="text-xl font-bold">${desc.title[currentLang]}</h3>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                            <div class="h-2.5 rounded-full ${isPrimary ? 'bg-indigo-600' : 'bg-gray-500'}" style="width: ${percentage}%"></div>
+                        </div>
+                        <p class="text-sm font-semibold mt-2">${item.score} / ${maxScore} ${t('points')} (${percentage}%)</p>
+                    </div>
+                `;
+            });
+
+            resultScores.innerHTML = scoreCardsHTML;
+
+            // --- Render Detailed Blended Interpretation ---
+            const mainInterpretationHTML = `
+                <div class="mb-6 p-6 rounded-xl border-l-4 ${profileData.style} shadow-md bg-white">
+                    <h4 class="text-2xl font-bold text-gray-800 mb-2 flex items-center">
+                        <span class="text-3xl mr-3">${discDescriptions[profileKey.charAt(0)].icon}</span>
+                        ${profileData.name[currentLang]}
+                    </h4>
+                    <p class="text-gray-600">${profileData.description[currentLang]}</p>
+                </div>
+            `;
+            
+            resultInterpretation.innerHTML = mainInterpretationHTML;
+        }
+        
+        /**
+         * Exports the results container content as a PDF file.
+         */
+        function exportToPDF() {
+            const element = document.getElementById('results-container');
+            
+            const options = {
+                margin: 10,
+                filename: t('filename') + '.pdf', // Dynamic filename based on language
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 3, logging: false, useCORS: true }, 
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(options).from(element).save();
+        }
+
+        /**
+         * Resets the test state and restarts the quiz.
+         */
+        function restartTest() {
+            // Reset state variables to zero
+            currentQuestionIndex = 0;
+            scores = { D: 0, I: 0, S: 0, C: 0 };
+            userRatings = [];
+            
+            // Hide results and show the test container
+            resultsContainer.classList.add('hidden');
+            testContainer.classList.remove('hidden');
+            
+            // Clear the dynamically generated HTML results
+            document.getElementById('result-scores').innerHTML = '';
+            document.getElementById('result-interpretation').innerHTML = '';
+
+            // Render the first question and update the progress bar to 0%
+            renderQuestion();
+        }
+
+        // Initialize the app when the window loads
+        window.onload = init;
+    </script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Main Container -->
+    <div class="max-w-4xl w-full bg-white p-8 md:p-12 rounded-2xl shadow-2xl transition duration-500">
+        
+        <!-- Language Selector -->
+        <div class="flex justify-end space-x-2 mb-4">
+            <button onclick="setLanguage('en')" class="lang-button p-1 rounded hover:bg-gray-100">
+                <img src="https://placehold.co/24x16/000000/FFFFFF?text=US" alt="English" title="English" class="rounded shadow">
+            </button>
+            <button onclick="setLanguage('pt')" class="lang-button p-1 rounded hover:bg-gray-100">
+                <img src="https://placehold.co/24x16/000000/FFFFFF?text=BR" alt="Português" title="Português (Brasil)" class="rounded shadow">
+            </button>
+        </div>
+
+        <header class="text-center mb-8">
+            <h1 id="header-title" class="text-4xl font-extrabold text-gray-800">DISC Personality Test</h1>
+            <p id="header-subtitle" class="text-gray-500 mt-2">Rate how much each statement describes you (1 = Least, 4 = Most)</p>
+        </header>
+
+        <!-- Test Container -->
+        <div id="test-container">
+
+            <!-- Progress Bar -->
+            <div class="mb-8">
+                <div id="progress-text" class="text-sm font-medium text-indigo-600 mb-1">Question 1 of 30</div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden shadow-inner">
+                    <div id="progress-bar-inner" class="bg-indigo-500 h-2.5 rounded-full progress-bar-inner" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Question Card -->
+            <div class="bg-indigo-50 p-6 md:p-10 rounded-xl border-4 border-indigo-200 shadow-xl">
+                <p id="question-text" class="text-2xl font-semibold text-gray-700 min-h-[4rem] flex items-center">Loading Question...</p>
+            </div>
+
+            <!-- Rating Buttons -->
+            <div id="rating-buttons" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+                
+                <button id="rating-1" onclick="handleRating(1, this)" class="rating-button p-4 text-lg font-semibold rounded-xl bg-gray-100 border border-gray-300 text-gray-600 hover:bg-red-50 hover:border-red-400">
+                    1 - Least Like Me
+                </button>
+                <button id="rating-2" onclick="handleRating(2, this)" class="rating-button p-4 text-lg font-semibold rounded-xl bg-gray-100 border border-gray-300 text-gray-600 hover:bg-yellow-50 hover:border-yellow-400">
+                    2 - Less Like Me
+                </button>
+                <button id="rating-3" onclick="handleRating(3, this)" class="rating-button p-4 text-lg font-semibold rounded-xl bg-gray-100 border border-gray-300 text-gray-600 hover:bg-green-50 hover:border-green-400">
+                    3 - More Like Me
+                </button>
+                <button id="rating-4" onclick="handleRating(4, this)" class="rating-button p-4 text-lg font-semibold rounded-xl bg-gray-100 border border-gray-300 text-gray-600 hover:bg-indigo-50 hover:border-indigo-300">
+                    4 - Most Like Me
+                </button>
+
+            </div>
+            
+            <!-- Rating guide for mobile -->
+            <div id="rating-guide" class="mt-6 text-center text-sm text-gray-400">
+                Tap or click a number to rate the statement (1=Least, 4=Most)
+            </div>
+
+        </div>
+
+        <!-- Results Container (Hidden by default) -->
+        <div id="results-container" class="hidden">
+            
+            <div class="text-center mb-10">
+                <h2 id="main-result-title" class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-4"></h2>
+                <p id="result-subtitle" class="text-gray-500">Below are your scores for the four DISC factors, followed by a detailed interpretation of your combined style.</p>
+            </div>
+
+            <!-- Score Cards -->
+            <div id="result-scores" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <!-- Score cards will be injected here -->
+            </div>
+
+            <!-- Detailed Interpretation -->
+            <h3 id="interpretation-title" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Detailed Profile Interpretation</h3>
+            <div id="result-interpretation" class="scroll-container space-y-4 pr-2">
+                <!-- Interpretation details will be injected here -->
+            </div>
+            
+            <div class="mt-8 text-center space-x-4">
+                <button id="restart-btn" onclick="restartTest()" class="px-8 py-3 bg-indigo-500 text-white font-bold rounded-xl hover:bg-indigo-600 transition duration-300 shadow-lg shadow-indigo-500/50">
+                    Restart Test
+                </button>
+                <button id="export-btn" onclick="exportToPDF()" class="px-8 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition duration-300 shadow-lg shadow-green-500/50">
+                    Export to PDF 📄
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
